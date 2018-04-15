@@ -169,7 +169,7 @@ a <- addrule(a, ruleList)
 
 #showGUI(a)
 
-#bp = as.matrix(read.csv("bp-data.csv"))
+#bp <- as.matrix(read.csv(file="bp-data.csv", header=TRUE, sep=","))
 #bp = bp[,-1]
 
 # Connecting do eHealth Mysql database
@@ -179,49 +179,55 @@ mydrv <- dbDriver("MySQL")
 con <- dbConnect(mydrv, dbname='ehealth', host='localhost', port=3306, user='root', password='af250974')
 
 #reading data from table with assinged status 'WaitingProc' -> Waiting Process
-res <- dbSendQuery(con, "SELECT V2, V3, V4, V5 FROM input2process WHERE V7 = 'WaitingProc'")
+#res <- dbSendQuery(con, "SELECT V2, V3, V4, V5 FROM input2process WHERE V6 = 'WaitingProc'")
+#res <- dbSendQuery(con, "SELECT V1, V2, V3, V4 FROM input2process WHERE V5 = '0'")
+res <- dbSendQuery(con, "SELECT V1, V2, V3, V4, V5 FROM input2process")
 bp = as.matrix(dbFetch(res, n=-1))
 #bp = bp[,-1]
 dbClearResult(res)
 
 list_output = c()
 
-for(i in 1:768){
-	input = bp[i,] 
+for(i in 1:nrow(bp)){
+	#input = bp[i,]
+	check_row=bp[i,5]
+	input = bp[i,1:4]	
 	age = input[4]
 	input[4] = input[3]
 	input[3] = age
-	list_output[i] = evalfis(input, a)
+	if(check_row=="0")
+	{list_output[i] = evalfis(input, a)}
+	else
+	{list_output[i] = "-1"}
 
 }
 
 tb = list_output
 for(i in 1:length(tb)){
-
-	value = tb[i]
-	if(value<10){
-		c = "low"
-	}
-	if(value>20){
-		c = "high"
-	}
-	if(value<20 && value>10){
-		c = "normal"
-	}
-		tb[i] = c
-		c = 0
+	value = as.numeric(tb[i])
+	if(value>-1 && value<10){
+		c = "Mild"
+	} else if(value==-1){
+		c = "Invalid Data"
+	} else if(value>20){
+		c = "Severe"
+	} else if(value<20 && value>10){
+		c = "Moderate"
+	} 
+	tb[i] = c
+	c = 0
 }
 
 final = matrix(0, nrow = length(tb), ncol = 8)
-
-final[1:length(tb), 2:5] = bp
+bp2 = bp[,1:4]
+final[1:length(tb), 2:5] = bp2
 
 final[,1] = c(1:length(tb))
 final[,6] = tb
 final[,7] = rep("Processed", length(tb))
 final[,8] = rep(toString(Sys.time()), length(tb))
 
-#write.csv(final, "databp3.csv")
+write.csv(final, "databp3.csv")
 
 # save on mysql
 df_test <- as.data.frame(final)
